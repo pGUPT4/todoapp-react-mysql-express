@@ -1,18 +1,29 @@
 const express = require('express');
+const app = express();
 const mysql = require('mysql');
 const cors = require('cors');
 const path = require('path');
-const app = express();
+const morgan = require('morgan');
+const bodyParser = require('body-parser');
+const dotenv = require('dotenv');
+dotenv.config();
 
-app.use(express.static(path.join(__dirname, "public")));
+const routes = require('./src/routes/routes');
+
+
+const port = process.env.PORT;
+app.use(morgan('dev'));
+app.use(bodyParser.json({limit: '5mb'}));
+app.use(bodyParser.urlencoded({
+    limit: '5mb',
+    extended: true,
+}));
 app.use(cors());
-app.use(express.json());
 
-const port = 5000;
-let connection = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
-});
+app.use('/api', routes);
 
+
+
+app.listen(port, () => {
+    console.log(`Server is running on port: ${port}`);
+})
