@@ -1,178 +1,170 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react';
-import './globals.css';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const App = () => {
-  const [editMode, setEditMode] = useState(false);
-  const [list, setList] = useState([]);
+interface User {
+  id?: number;
+  firstName: string;
+  lastName: string;
+}
+
+export default function Home() {
+  const [users, setUsers] = useState<User[]>([]);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [userId, setUserId] = useState('');
+  const [editId, setEditId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-
-  const showList = async () => {
-    try {
-      const { data } = await axios.get('http://localhost:5000/api/show/list');
-      setList(data);
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
-  // add todo
-  const createList = async (e: { preventDefault: () => void; }) => {
-    e.preventDefault();
-    try {
-      const add = await axios.post('http://localhost:5000/api/create/list', { firstName, lastName });
-      if (add.status === 200) {
-        setFirstName('');
-        setLastName('');
-        showList();
-      }
-
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
-  // delete single todo
-  const deleteTodo = async (id: any) => {
-
-    try {
-      const todoDelete = await axios.delete(`http://localhost:5000/delete/listItem/${id}`);
-      if (todoDelete.status === 200) {
-        showList();
-      }
-
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
-
-  // populate single todo in the form
-  const showSingleTodo = async(id : any) => {
-    setEditMode(true);
-
-    try {
-      const { data } = await axios.get(`http://localhost:5000/api/listItem/${id}`);
-      setFirstName(data.firstName);
-      setLastName(data.lastName);
-      setUserId(data.id);
-
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
-  //edit todo
-  const editTodo = async (e: { preventDefault: () => void; }) => {
-    e.preventDefault()
-
-    try {
-      const edit = await axios.put(`http://localhost:5000/api/update/listItem/${userId}`, { firstName, lastName });
-
-      if (edit.status === 200) {
-        setEditMode(false);
-        setFirstName('');
-        setLastName('');
-        showList();
-      }
-    } catch (error) {
-      console.log(error)
-    }
-
-  }
-
-
-
+  // Fetch all users on component mount
   useEffect(() => {
-    showList();
+    fetchUsers();
   }, []);
 
-  return (
-    <>
-      {/* <Header /> */}
-      <div className="container">
-        <div className="form pt-[50px] pb-[50px]">
-          <form 
-            onSubmit={
-                editMode ? editTodo : createList
-                }>
-            <div className="form-wrapper flex justify-between">
-              <div className="flex-1 mr-[10px]">
-                <input 
-                  onChange={(e) => setFirstName(e.target.value)} 
-                  value={firstName} 
-                  className="form-control" 
-                  type="text" 
-                  placeholder="first name" 
-                  name="firstName"/>
-              </div>
-              <div className="flex-1">
-                <input 
-                  onChange={(e) => setLastName(e.target.value)} 
-                  value={lastName} 
-                  className="form-control" 
-                  type="text" 
-                  placeholder="last name" 
-                  name="lastName" />
-              </div>
-              {
-                editMode ?
-                  <button 
-                    type='submit' 
-                    className="btn btn-primary w-[200px] ml-[10px]">
-                      Edit
-                    </button>
-                  :
-                  <button 
-                    type='submit' 
-                    className="btn btn-success w-[200px] ml-[10px]">
-                      + Add
-                    </button>
-              }
-            </div>
-          </form>
-        </div>
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/show/list');
+      setUsers(response.data);
+    } catch (err) {
+      setError('Failed to fetch users');
+    }
+  };
 
-        <table className="table w-full text-left border-collapse">
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!firstName || !lastName) {
+      setError('Both first name and last name are required');
+      return;
+    }
+
+    try {
+      if (editId) {
+        // Update existing user
+        await axios.put(`http://localhost:5000/api/update/listItem/${editId}`, {
+          firstName,
+          lastName,
+        });
+      } else {
+        // Create new user
+        await axios.post('http://localhost:5000/api/create/list', {
+          firstName,
+          lastName,
+        });
+      }
+      // Reset form and refresh user list
+      setFirstName('');
+      setLastName('');
+      setEditId(null);
+      fetchUsers();
+    } catch (err) {
+      setError('Failed to save user');
+    }
+  };
+
+  const handleEdit = (user: User) => {
+    setFirstName(user.firstName);
+    setLastName(user.lastName);
+    setEditId(user.id!);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/delete/listItem/${id}`);
+      fetchUsers();
+    } catch (err) {
+      setError('Failed to delete user');
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4 text-center">
+        User Management
+      </h1>
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="mb-8 max-w-md mx-auto">
+        <div className="mb-4">
+          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+            First Name
+          </label>
+          <input
+            type="text"
+            id="firstName"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter first name"
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+            Last Name
+          </label>
+          <input
+            type="text"
+            id="lastName"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter last name"
+          />
+        </div>
+        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        <button
+          type="submit"
+          className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 transition"
+        >
+          {editId ? 'Update User' : 'Add User'}
+        </button>
+      </form>
+
+      {/* User Table */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border border-gray-200">
           <thead>
-            <tr>
-              <th scope="col" className="px-4 py-2">#</th>
-              <th scope="col" className="px-4 py-2">First name</th>
-              <th scope="col" className="px-4 py-2">Last name</th>
-              <th scope="col" className="px-4 py-2">Actions</th>
+            <tr className="bg-gray-100">
+              <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">ID</th>
+              <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">First Name</th>
+              <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Last Name</th>
+              <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {
-              list && list.map(item => (
-                <tr key={item.id} className="border-t">
-                  <th scope="row" className="px-4 py-2 font-medium">{item.id}</th>
-                  <td className="px-4 py-2">{item.firstName}</td>
-                  <td className="px-4 py-2">{item.lastName}</td>
-                  <td className="px-4 py-2">
-                    <i 
-                      onClick={() => showSingleTodo(item.id)} 
-                      className="fa-solid fa-pen-to-square text-green-600 cursor-pointer mr-[25px]"
-                    > Edit</i>
-                    <i 
-                      onClick={() => deleteTodo(item.id)} 
-                      className="fa-solid fa-trash-can text-red-600 cursor-pointer"
-                    > Delete</i>
+            {users.length > 0 ? (
+              users.map((user) => (
+                <tr key={user.id} className="border-t">
+                  <td className="px-4 py-2 text-black">{user.id}</td>
+                  <td className="px-4 py-2 text-black">{user.firstName}</td>
+                  <td className="px-4 py-2 text-black">{user.lastName}</td>
+                  <td className="px-4 py-2 text-black">
+                    <button
+                      onClick={() => handleEdit(user)}
+                      className="text-blue-500 hover:text-blue-700 mr-4"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user.id!)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))
-            }
+            ) : (
+              <tr>
+                <td colSpan={4} className="px-4 py-2 text-center text-gray-500">
+                  No users found
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
-
       </div>
-    </>
-  )
+    </div>
+  );
 }
-
-export default App
